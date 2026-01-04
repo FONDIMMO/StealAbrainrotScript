@@ -1,5 +1,5 @@
 --==================================================
--- FONDI | STEAL A BRAINROT (FIXED v2)
+-- FONDI | STEAL A BRAINROT (STABLE)
 --==================================================
 
 -- SERVICES
@@ -7,14 +7,14 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local PhysicsService = game:GetService("PhysicsService")
+
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 --==================================================
--- CHARACTER
+-- CHARACTER SAFE
 --==================================================
-local function Char()
+local function GetChar()
     return LP.Character or LP.CharacterAdded:Wait()
 end
 
@@ -28,20 +28,14 @@ local Settings = {
 }
 
 --==================================================
--- COLLISION GROUP FIX
---==================================================
-pcall(function()
-    PhysicsService:CreateCollisionGroup("FONDI_NOCLIP")
-end)
-PhysicsService:CollisionGroupSetCollidable("FONDI_NOCLIP","Default",false)
-
---==================================================
--- INVISIBILITY
+-- INVISIBLE (SAFE)
 --==================================================
 local function SetInvisible(state)
-    for _,v in ipairs(Char():GetDescendants()) do
+    local char = GetChar()
+    for _,v in ipairs(char:GetDescendants()) do
         if v:IsA("BasePart") then
             v.Transparency = state and 1 or 0
+            v.CanCollide = not state
         elseif v:IsA("Accessory") and v:FindFirstChild("Handle") then
             v.Handle.Transparency = state and 1 or 0
         end
@@ -49,13 +43,13 @@ local function SetInvisible(state)
 end
 
 --==================================================
--- REAL NOCLIP (WALL FIX)
+-- NOCLIP (REAL)
 --==================================================
 RunService.Stepped:Connect(function()
     if Settings.Noclip then
-        for _,v in ipairs(Char():GetDescendants()) do
+        local char = GetChar()
+        for _,v in ipairs(char:GetDescendants()) do
             if v:IsA("BasePart") then
-                PhysicsService:SetPartCollisionGroup(v,"FONDI_NOCLIP")
                 v.CanCollide = false
             end
         end
@@ -63,42 +57,41 @@ RunService.Stepped:Connect(function()
 end)
 
 --==================================================
--- FLY (WORKS WITH BRAINROT TOOL)
+-- FLY (OLD BUT STABLE)
 --==================================================
-local LV, AO
-local SPEED = 65
+local BV, BG
+local SPEED = 60
 
 RunService.RenderStepped:Connect(function()
     if Settings.Fly then
-        local hrp = Char():WaitForChild("HumanoidRootPart")
+        local char = GetChar()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-        if not LV then
-            LV = Instance.new("LinearVelocity")
-            LV.MaxForce = math.huge
-            LV.Attachment0 = Instance.new("Attachment", hrp)
-            LV.Parent = hrp
+        if not BV then
+            BV = Instance.new("BodyVelocity")
+            BV.MaxForce = Vector3.new(1e9,1e9,1e9)
+            BV.Parent = hrp
 
-            AO = Instance.new("AlignOrientation")
-            AO.Attachment0 = LV.Attachment0
-            AO.RigidityEnabled = true
-            AO.MaxTorque = math.huge
-            AO.Parent = hrp
+            BG = Instance.new("BodyGyro")
+            BG.MaxTorque = Vector3.new(1e9,1e9,1e9)
+            BG.Parent = hrp
         end
 
-        AO.CFrame = Camera.CFrame
+        BG.CFrame = Camera.CFrame
 
-        local dir = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
+        local move = Vector3.new()
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
 
-        LV.VectorVelocity = dir * SPEED
+        BV.Velocity = move * SPEED
     else
-        if LV then LV:Destroy() LV=nil end
-        if AO then AO:Destroy() AO=nil end
+        if BV then BV:Destroy() BV=nil end
+        if BG then BG:Destroy() BG=nil end
     end
 end)
 
@@ -106,14 +99,16 @@ end)
 -- TELEPORT SAFE
 --==================================================
 local function TeleportSafe()
-    Char():WaitForChild("HumanoidRootPart").CFrame = CFrame.new(0,250,0)
+    GetChar():WaitForChild("HumanoidRootPart").CFrame = CFrame.new(0,200,0)
 end
 
 --==================================================
--- GUI
+-- GUI (ALWAYS LOADS)
 --==================================================
-local gui = Instance.new("ScreenGui", game.CoreGui)
+local gui = Instance.new("ScreenGui")
+gui.Name = "FONDI_GUI"
 gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
 
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.fromScale(0.3,0.4)
@@ -147,11 +142,11 @@ content.Position = UDim2.fromScale(0,0.18)
 content.Size = UDim2.fromScale(1,0.82)
 content.BackgroundTransparency = 1
 
-local function Btn(txt,y,cb)
+local function Btn(text,y,cb)
     local b = Instance.new("TextButton", content)
     b.Size = UDim2.fromScale(0.85,0.18)
     b.Position = UDim2.fromScale(0.075,y)
-    b.Text = txt
+    b.Text = text
     b.TextScaled = true
     b.BackgroundColor3 = Color3.fromRGB(40,40,40)
     b.TextColor3 = Color3.new(1,1,1)
@@ -177,10 +172,12 @@ end)
 
 local collapsed=false
 arrow.MouseButton1Click:Connect(function()
-    collapsed=not collapsed
+    collapsed = not collapsed
     arrow.Text = collapsed and "▲" or "▼"
     TweenService:Create(frame,TweenInfo.new(0.25),{
         Size = collapsed and UDim2.fromScale(0.3,0.18) or UDim2.fromScale(0.3,0.4)
     }):Play()
     content.Visible = not collapsed
 end)
+
+print("[FONDI] Script loaded successfully")
